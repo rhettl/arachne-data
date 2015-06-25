@@ -1,4 +1,8 @@
-var Infinity = require('./dataLoader.js')();
+var Infinity = require('./dataLoader.js');
+
+Infinity.getData()
+
+
 
 //console.log(Infinity);
 //Infinity.map(function(i, j){
@@ -8,18 +12,17 @@ var Infinity = require('./dataLoader.js')();
 //  });
 //});
 
-
-console.log(
-    Infinity[5][1].units
-      .map(function (i) {
-        //return i.raw[3];
-          i.raw=null;
-        return i;
-      })
-        .filter(function (i) {
-          return i.flags.extremelyImpetuous
-        })
-        .map(function (i) {
-          return i.name
-        })
-);
+//console.log(
+//  Infinity[5][1].units
+//    .map(function (i) {
+//      //return i.raw[3];
+//      i.raw = null;
+//      return i;
+//    })
+//    //.filter(function (i) {
+//    //  return i.flags.extremelyImpetuous
+//    //})
+//    //.map(function (i) {
+//    //  return i.name
+//    //})
+//);
