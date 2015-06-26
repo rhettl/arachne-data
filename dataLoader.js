@@ -17,7 +17,7 @@ function noop () {
  * Contextualizes client side scripts for running in node
  *
  * @param {String} path location on FS of file to read
- * @param {Object} context initial object to be used as window/this/global
+ * @param {Object} [context={}] initial object to be used as window/this/global
  *
  * @returns {Object}
  */
@@ -28,51 +28,81 @@ var requireFile = function (path, context) {
   return context;
 };
 
-/**
- * Get data from remote site via HTTP and store in tmp location
- *
- * @param {String} url Location of file in remote server
- *
- * @return {Promise}
- */
-var getData = function (url) {
-  var deferred = q.defer();
+var checkTmpFileAge = function (options) {
+  var age = -1;
 
-  // need url
-  if (!url) {
-    return deferred.reject(new Error("No url provided for data source."));
-  }
-
-  //set temporary location and create a write stream to that location
-  var tmpDir = __dirname + "/.tmp";
-  var tmpLoc = tmpDir + "/data.js";
 
   // Chec for directory and make if not existent
   try {
-    fs.mkdirSync(tmpDir);
+    var stat = fs.statSync(options.tmpLoc + "/" + options.tmpDataName);
+
+    // now() minus last modify, convert milli->sec, last round to a whole number
+    age = Math.round(((new Date()).getTime() - stat.mtime.getTime()) / 1000);
   } catch (e) {
     // ignore error made from .tmp file existing already
-    if (e.code !== 'EEXIST') {
+    if (e.code !== 'ENOENT') {
       throw e;
     }
   }
 
-  var file = fs.createWriteStream(tmpLoc);
-
-  //get data and write to location
-  var request = http
-    .get(url, function (response) {
-      response.pipe(file);
-      response.on('end', function () {
-        return deferred.resolve(tmpLoc)
-      })
-    })
-    .on('error', function (e) {
-      return deferred.reject(e);
-    });
-
-  return deferred.promise;
+  return age;
 };
+
+/**
+ * Get data from remote site via HTTP and store in tmp location
+ *
+ * @param {Object} options Object with options including tmpLoc
+ * @return {Function} for promise stream
+ */
+var getData = function (options) {
+
+  /**
+   *
+   * @param {String} url Location of file in remote server
+   *
+   * @return {Promise}
+   */
+  return function (url) {
+    var deferred = q.defer();
+
+    // need url
+    if (!url) {
+      return deferred.reject(new Error("No url provided for data source."));
+    }
+
+    //set temporary location and create a write stream to that location
+    var tmpDir = options.tmpLoc;
+    var tmpLoc = tmpDir + "/" + options.tmpDataName;
+
+    // Chec for directory and make if not existent
+    try {
+      fs.mkdirSync(tmpDir);
+    } catch (e) {
+      // ignore error made from .tmp file existing already
+      if (e.code !== 'EEXIST') {
+        throw e;
+      }
+    }
+
+    var file = fs.createWriteStream(tmpLoc);
+
+    //get data and write to location
+    var request = http
+      .get(url, function (response) {
+        response.pipe(file);
+        response.on('end', function () {
+          return deferred.resolve(tmpLoc)
+        })
+      })
+      .on('error', function (e) {
+        return deferred.reject(e);
+      });
+
+    return deferred.promise;
+  };
+};
+
+
 /**
  * Gets data file location with date of most recent changes.
  *
@@ -138,30 +168,33 @@ var getSectorialNames = function (armyUrl, lang) {
 /*
  Data Parsing
  */
-var parseIntoFactions = function (lang, context) {
-  var data = {};
+var parseIntoFactions = function (lang) {
 
-  for (var i = 1; i <= 10; i++) {
-    for (var j = 1; j <= 5; j++) {
-      context.SECTORIAL_ACTUAL = parseInt("" + i + j);
+  return function (context) {
+    var data = {};
 
-      context.cargaDataLogos(lang);
-      if (context.dataLogos.length > 1) {
-        //context.cargaNombresLogos(lang);
+    for (var i = 1; i <= 10; i++) {
+      for (var j = 1; j <= 5; j++) {
+        context.SECTORIAL_ACTUAL = parseInt("" + i + j);
 
-        if (!data[i]) {
-          data[i] = {};
+        context.cargaDataLogos(lang);
+        if (context.dataLogos.length > 1) {
+          //context.cargaNombresLogos(lang);
+
+          if (!data[i]) {
+            data[i] = {};
+          }
+          //data[i][j] = {
+          //  //names: context.nombreLogos,
+          //  units: context.dataLogos
+          //};
+          data[i][j] = context.dataLogos;
         }
-        //data[i][j] = {
-        //  //names: context.nombreLogos,
-        //  units: context.dataLogos
-        //};
-        data[i][j] = context.dataLogos;
       }
     }
-  }
 
-  return data;
+    return data;
+  }
 };
 
 var parseMove = function (move) {
@@ -232,24 +265,24 @@ var parseUnitString = function (str) {
           ava : parseInt(stats[8])
         },
         order: {
-          regular: basic[4] === '1',
+          regular  : basic[4] === '1',
           irregular: basic[5] === '1',
         },
         flags: {
-          cube: basic[2] === '1',
-          cube2: basic[3] === '1',
-          irregularOrder: basic[5] === '1',
-          impetuous: basic[6] === '1',
+          cube              : basic[2] === '1',
+          cube2             : basic[3] === '1',
+          irregularOrder    : basic[5] === '1',
+          impetuous         : basic[6] === '1',
           extremelyImpetuous: basic[9] === '1',
-          frenzied: basic[7] === '1',
-          hackable: basic[10] === '1',
+          frenzied          : basic[7] === '1',
+          hackable          : basic[10] === '1',
         },
 
 
         raw: str
       };
 
-    console.log(basic[11], basic[12], basic[8]);
+  console.log(basic[11], basic[12], basic[8]);
 
 
   return unit;
@@ -273,8 +306,11 @@ module.exports.LANG = {
 };
 
 module.exports.DEFAULTS = {
-  lang    : module.exports.LANG.ENG,
-  armyRoot: 'http://www.infinitythegame.com/army/'
+  lang       : module.exports.LANG.ENG,                  // Must be 1, 2, or 3. Rec. use LANG[lang]
+  armyRoot   : 'http://www.infinitythegame.com/army/',   // Location of infinity's army builder
+  cache      : 3600,                                        // Number of seconds to cache the data.js before fetching a new one.
+  tmpLoc     : __dirname + '/.tmp',
+  tmpDataName: 'data.js'
 };
 
 module.exports.FACTIONS = {};
@@ -292,21 +328,31 @@ module.exports.getData = function (options, callback) {
   }
 
   callback = callback || noop;
-  var opts = extend({}, module.exports.DEFAULTS, options);
+  var options = extend({}, module.exports.DEFAULTS, options);
 
-  // Get location and mod date of data.js from army5 root location
-  var data = getDataLoc(opts.armyRoot)
+  // get mod date
+  var data,
+      dataAge = checkTmpFileAge(options);
 
-    // Get the date from retieved data.js
-    .then(getData)
+  // fetch file if no file (-1) or mod date is older than cache length (+3600)
+  if (options.cache && (dataAge < 0 || dataAge > options.cache)) {
 
-    // put file into a virtual context
-    .then(requireFile)
+    // Get location and mod date of data.js from army5 root location
+    data = getDataLoc(options.armyRoot)
+      // Get the date from retrieved data.js
+      .then(getData(options))
 
+      // put file into a virtual context
+      .then(requireFile);
+
+  } else {
+    // else just read file from temp location
+    data = requireFile(options.tmpLoc + '/' + options.tmpDataName);
+  }
+
+  data
     // parse context to get raw unit info per sectorial
-    .then(function (sectContext) {
-      return parseIntoFactions(opts.lang, sectContext);
-    })
+    .then(parseIntoFactions(options.lang))
 
     // move sectorials off root and into units object
     .then(function (facts) {
@@ -351,7 +397,7 @@ module.exports.getData = function (options, callback) {
       callback(e);
     });
 
-  //var names = getSectorialNames(opts.armyRoot, opts.lang);
+  //var names = getSectorialNames(options.armyRoot, options.lang);
 
   // Once I have all names and data
   //  Attach names to data
