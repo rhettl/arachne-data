@@ -226,6 +226,9 @@ var parseNotes = function (notes) {
     })      // remove empty
     ;
 };
+var parseSkills = function(skills){
+  return
+};
 
 var parseUnitString = function (str) {
   if (!str) throw new Error('No unit string given');
@@ -265,24 +268,26 @@ var parseUnitString = function (str) {
           ava : parseInt(stats[8])
         },
         order: {
-          regular  : basic[4] === '1',
-          irregular: basic[5] === '1',
-        },
-        flags: {
-          cube              : basic[2] === '1',
-          cube2             : basic[3] === '1',
-          irregularOrder    : basic[5] === '1',
+          regular           : basic[4] === '1',
+          irregular         : basic[5] === '1',
           impetuous         : basic[6] === '1',
           extremelyImpetuous: basic[9] === '1',
-          frenzied          : basic[7] === '1',
-          hackable          : basic[10] === '1',
+        },
+        flags: {
+          cube    : basic[2] === '1',
+          cube2   : basic[3] === '1',
+          frenzied: basic[7] === '1',
+          hackable: basic[10] === '1',
         },
 
 
         raw: str
       };
 
-  console.log(basic[11], basic[12], basic[8]);
+  if (sec[7]) console.log(sec[7])
+
+  //console.log(sec[1]);
+  //console.log(sec[7], sec.slice(12, 18), sec[20]);
 
 
   return unit;
@@ -327,7 +332,7 @@ module.exports.getData = function (options, callback) {
     options = {};
   }
 
-  callback = callback || noop;
+  callback = callback || function(e, d){if (e) throw e};
   var options = extend({}, module.exports.DEFAULTS, options);
 
   // get mod date
@@ -347,7 +352,8 @@ module.exports.getData = function (options, callback) {
 
   } else {
     // else just read file from temp location
-    data = requireFile(options.tmpLoc + '/' + options.tmpDataName);
+    // wrap in a promise to normalize with the if statement block above
+    data = q.fcall(requireFile, options.tmpLoc + '/' + options.tmpDataName);
   }
 
   data
@@ -383,6 +389,7 @@ module.exports.getData = function (options, callback) {
 
     // log, for me. not in production
     //.then(function(i){
+    //  console.log('hi');
     //  console.log(i[5][1]);
     //  return i;
     //})
@@ -395,7 +402,9 @@ module.exports.getData = function (options, callback) {
     // Show error messages
     .fail(function (e) {
       callback(e);
-    });
+    })
+    .done(function(){})
+  ;
 
   //var names = getSectorialNames(options.armyRoot, options.lang);
 
