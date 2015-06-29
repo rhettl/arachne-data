@@ -1,6 +1,28 @@
+var fs = require('fs');
 var Infinity = require('./dataLoader.js');
 
-Infinity.getData()
+Infinity.getData({
+  includeRaw: true
+}, function (e, d) {
+  if (e) {
+    throw e;
+  } else {
+    var file = fs.createWriteStream(__dirname + '/out.json');
+    file.write(JSON.stringify(d, null, 2));
+    file.end();
+  }
+});
+Infinity.getData({
+  //includeRaw: true
+}, function (e, d) {
+  if (e) {
+    throw e;
+  } else {
+    var fileMin = fs.createWriteStream(__dirname + '/out.min.json');
+    fileMin.write(JSON.stringify(d));
+    fileMin.end();
+  }
+});
 
 
 

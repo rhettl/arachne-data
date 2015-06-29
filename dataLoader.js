@@ -86,17 +86,27 @@ var getData = function (options) {
 
     var file = fs.createWriteStream(tmpLoc);
 
+    var request = requestify
+          .get(url)
+          .then(function (i) {
+            file.write(i.getBody());
+            file.end();
+            deferred.resolve(tmpLoc);
+          })
+          .fail(function (e) {
+            return deferred.reject(e);
+          })
+      ;
+
+    //var temp = '';
     //get data and write to location
-    var request = http
-      .get(url, function (response) {
-        response.pipe(file);
-        response.on('end', function () {
-          return deferred.resolve(tmpLoc)
-        })
-      })
-      .on('error', function (e) {
-        return deferred.reject(e);
-      });
+    //var request = http
+    //  .get(url, function (response) {
+    //    console.log(response.getBody())
+    //  })
+    //  .on('error', function (e) {
+    //    return deferred.reject(e);
+    //  });
 
     return deferred.promise;
   };
@@ -226,11 +236,11 @@ var parseNotes = function (notes) {
     })      // remove empty
     ;
 };
-var parseSkills = function(skills){
-  return
+var parseSkills = function (skills) {
+  return skills.match(/i/);
 };
 
-var parseUnitString = function (str) {
+var parseUnitString = function (str, options) {
   if (!str) throw new Error('No unit string given');
 
   //console.log(str);
@@ -281,10 +291,14 @@ var parseUnitString = function (str) {
         },
 
 
-        raw: str
+        //raw: str
       };
 
-  if (sec[7]) console.log(sec[7])
+  if (options.includeRaw) {
+    unit.raw = str;
+  }
+
+  //if (sec[7]) console.log(sec[7])
 
   //console.log(sec[1]);
   //console.log(sec[7], sec.slice(12, 18), sec[20]);
@@ -315,7 +329,8 @@ module.exports.DEFAULTS = {
   armyRoot   : 'http://www.infinitythegame.com/army/',   // Location of infinity's army builder
   cache      : 3600,                                        // Number of seconds to cache the data.js before fetching a new one.
   tmpLoc     : __dirname + '/.tmp',
-  tmpDataName: 'data.js'
+  tmpDataName: 'data.js',
+  includeRaw: false
 };
 
 module.exports.FACTIONS = {};
@@ -332,7 +347,9 @@ module.exports.getData = function (options, callback) {
     options = {};
   }
 
-  callback = callback || function(e, d){if (e) throw e};
+  callback = callback || function (e, d) {
+      if (e) throw e
+    };
   var options = extend({}, module.exports.DEFAULTS, options);
 
   // get mod date
@@ -380,7 +397,9 @@ module.exports.getData = function (options, callback) {
     .then(function (facts) {
       Object.getOwnPropertyNames(facts).forEach(function (fid) {
         Object.getOwnPropertyNames(facts[fid]).forEach(function (sid) {
-          facts[fid][sid].units = facts[fid][sid].units.map(parseUnitString);
+          facts[fid][sid].units = facts[fid][sid].units.map(function(row){
+            return parseUnitString(row, options);
+          });
         });
       });
 
@@ -396,9 +415,9 @@ module.exports.getData = function (options, callback) {
 
 
     // Output to user
-    //.then(function (i) {
-    //  callback(null, i);
-    //})
+    .then(function (i) {
+      callback(null, i);
+    })
     // Show error messages
     .fail(function (e) {
       callback(e);
