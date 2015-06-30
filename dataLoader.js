@@ -236,8 +236,26 @@ var parseNotes = function (notes) {
     })      // remove empty
     ;
 };
-var parseSkills = function (skills) {
-  return skills.match(/i/);
+var parseHas = function (skills) {
+  var args = [];
+  // Change arguments to an array;
+  for (var i = 0, l = arguments.length; i < l; i++) {
+    if (arguments[i]) {
+      args.push(arguments[i]);
+    }
+  }
+
+  args = args.join('');
+  var matches = args.match(/elemento_hab'>[\w\s:]*<\//g);
+  if (matches) {
+    matches = matches
+      .slice(1)
+      .map(function (i) {
+        return i.match(/>([\w\s:]*)</)[1]
+      });
+  }
+
+  return matches || [];
 };
 
 var parseUnitString = function (str, options) {
@@ -245,63 +263,139 @@ var parseUnitString = function (str, options) {
 
   //console.log(str);
 
-  var sec           = str.split('|'),
-      basic         = sec[3].split('@'),    //  0|type|SK   1|class|Spec. Trained  Troops   2|cube|1   3|?|0   4|regular|1   5|irregular|0   6|impetuous|0
-                                            // 7|frenzied|0   8|name|MORAN, Maasai Hunter   9|ext.impetuous|0   10|hackable|0   11|?|0   12|?|0   13|notes|''
-      stats         = sec[4].split('@'),    //  0|move|10-5   1|cc|14   2|bs|13   3|ph|11   4|wip|13   5|arm|3   6|bts|0   7|w|1   8|ava|3   9|w-is-str|0   10|?|0   11|?|0   12|s|2
-      mainUnitProfs = sec[18].split('@'),
-      subUnitProfs  = sec[18].split('@'),
-      unit          = {
+  var sec         = str.split('|'),
+      basic       = sec[3].split('@'),    //  0|type|SK   1|class|Spec. Trained  Troops   2|cube|1   3|?|0   4|regular|1   5|irregular|0   6|impetuous|0
+                                          //  7|frenzied|0   8|name|MORAN, Maasai Hunter   9|ext.impetuous|0   10|hackable|0   11|?|0   12|?|0   13|notes|''
+      stats       = sec[4].split('@'),    //  0|move|10-5   1|cc|14   2|bs|13   3|ph|11   4|wip|13   5|arm|3   6|bts|0   7|w|1   8|ava|3   9|w-is-str|0   10|?|0   11|?|0   12|s|2
+
+      profileSets = [
+        {
+          basic   : sec[3].split('@'),
+          stats   : sec[4].split('@'),
+          skills  : parseHas(sec[5], sec[7]),
+          equip   : parseHas(sec[6]),
+          profiles: sec[18].split('@')
+        },
+        {
+          basic   : sec[8].split('@'),
+          stats   : sec[9].split('@'),
+          skills  : parseHas(sec[10], sec[12]),
+          equip   : parseHas(sec[11]),
+          profiles: sec[19].split('@')
+        },
+        {
+          basic   : sec[13].split('@'),
+          stats   : sec[14].split('@'),
+          skills  : parseHas(sec[15], sec[17]),
+          equip   : parseHas(sec[16]),
+          profiles: sec[20].split('@')
+        }
+      ],
+
+      unit        = {
         id         : parseInt(sec[0]),
         faction    : '',
         sectorial  : '',
         isSectorial: false,
-        name       : basic[8],
-        icsName    : sec[1],
+        iscName    : sec[1],
         numUnits   : sec[2],
         windowType : sec[21],
-        type       : basic[0],
-        class      : basic[1],
-        notes      : parseNotes(basic[13]),
 
-        stats: {
-          move: parseMove(stats[0]),
-          cc  : parseInt(stats[1]),
-          bs  : parseInt(stats[2]),
-          ph  : parseInt(stats[3]),
-          wip : parseInt(stats[4]),
-          arm : parseInt(stats[5]),
-          bts : parseInt(stats[6]),
-          w   : stats[9] === 0 ? parseInt(stats[7]) : null,
-          str : stats[9] === 0 ? null : parseInt(stats[7]),
-          s   : parseInt(stats[12]),
-          ava : parseInt(stats[8])
-        },
-        order: {
-          regular           : basic[4] === '1',
-          irregular         : basic[5] === '1',
-          impetuous         : basic[6] === '1',
-          extremelyImpetuous: basic[9] === '1',
-        },
-        flags: {
-          cube    : basic[2] === '1',
-          cube2   : basic[3] === '1',
-          frenzied: basic[7] === '1',
-          hackable: basic[10] === '1',
-        },
+        units: []
 
 
         //raw: str
       };
 
+  unit.units = profileSets
+    .filter(function (unit) {
+      return (unit.basic || []).length > 1
+    })
+    .map(function (unit) {
+      unit.profiles = unit.profiles.filter(function (i) {
+        return !!i;
+      });
+      return unit;
+    })
+    .map(function (unit) {
+
+      return {
+
+        type : unit.basic[0],
+        class: unit.basic[1],
+        name : unit.basic[8],
+        notes: parseNotes(unit.basic[13] || ''),
+
+        stats   : {
+          move: parseMove(unit.stats[0]),
+          cc  : parseInt(unit.stats[1]),
+          bs  : parseInt(unit.stats[2]),
+          ph  : parseInt(unit.stats[3]),
+          wip : parseInt(unit.stats[4]),
+          arm : parseInt(unit.stats[5]),
+          bts : parseInt(unit.stats[6]),
+          w   : unit.stats[9] == 0 ? parseInt(unit.stats[7]) : null,
+          str : unit.stats[9] == 0 ? null : parseInt(unit.stats[7]),
+          s   : parseInt(unit.stats[12]),
+          ava : parseInt(unit.stats[8])
+        },
+        order   : {
+          regular           : unit.basic[4] === '1',
+          irregular         : unit.basic[5] === '1',
+          impetuous         : unit.basic[6] === '1',
+          extremelyImpetuous: unit.basic[9] === '1',
+        },
+        flags   : {
+          cube    : unit.basic[2] === '1',
+          cube2   : unit.basic[3] === '1',
+          frenzied: unit.basic[7] === '1',
+          hackable: unit.basic[10] === '1',
+        },
+        skills  : unit.skills,
+        equip   : unit.equip,
+        profiles: unit.profiles.map(function (p) {
+          console.log(p);
+          var t = p.split(/#/);
+
+          console.log(t[1], t[0], t[6], t[7], t[8], t[9]);
+
+          return {
+            id      : parseInt(t[0]),
+            name    : t[1],
+            weapon  : t[2],
+            ccw     : t[3],
+            swc     : t[4],
+            extraSwc: !!(t[4].match(/\+/)),
+            pts     : parseInt(t[5]),
+            selectable: !!parseInt(t[7]),
+            attachment: parseInt(t[7]) || false,
+            unk1    : t[6],
+            unk2    : t[7],
+            unk3    : t[8].split(/%/),//.map(function(i){return parseInt(i)}),
+            unk4    : t[9]
+          }
+        })
+
+      }
+    })
+  ;
+
   if (options.includeRaw) {
     unit.raw = str;
   }
 
-  //if (sec[7]) console.log(sec[7])
-
   //console.log(sec[1]);
-  //console.log(sec[7], sec.slice(12, 18), sec[20]);
+  //if (sec[13]) console.log('13', sec[13], sec[1]);
+  //if (sec[14]) console.log('14', sec[14], sec[1]);
+  //if (sec[15]) console.log('15', sec[15], sec[1]);
+  //if (sec[16]) console.log('16', sec[16], sec[1]);
+  //if (sec[17]) console.log('17', sec[17], sec[1]);
+  //if (sec[20]) console.log('20', sec[20], sec[1]);
+  //if (sec[7]) console.log('7', sec[7], sec[1]);
+  //if (sec[6]) console.log('6', sec[6], sec[1]);
+  console.log('');
+
+  //console.log(sec.slice(12, 18), sec[20]);
 
 
   return unit;
@@ -330,7 +424,7 @@ module.exports.DEFAULTS = {
   cache      : 3600,                                        // Number of seconds to cache the data.js before fetching a new one.
   tmpLoc     : __dirname + '/.tmp',
   tmpDataName: 'data.js',
-  includeRaw: false
+  includeRaw : false
 };
 
 module.exports.FACTIONS = {};
@@ -397,7 +491,7 @@ module.exports.getData = function (options, callback) {
     .then(function (facts) {
       Object.getOwnPropertyNames(facts).forEach(function (fid) {
         Object.getOwnPropertyNames(facts[fid]).forEach(function (sid) {
-          facts[fid][sid].units = facts[fid][sid].units.map(function(row){
+          facts[fid][sid].units = facts[fid][sid].units.map(function (row) {
             return parseUnitString(row, options);
           });
         });
@@ -422,7 +516,8 @@ module.exports.getData = function (options, callback) {
     .fail(function (e) {
       callback(e);
     })
-    .done(function(){})
+    .done(function () {
+    })
   ;
 
   //var names = getSectorialNames(options.armyRoot, options.lang);

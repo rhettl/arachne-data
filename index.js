@@ -2,7 +2,7 @@ var fs = require('fs');
 var Infinity = require('./dataLoader.js');
 
 Infinity.getData({
-  includeRaw: true
+  //includeRaw: true
 }, function (e, d) {
   if (e) {
     throw e;
