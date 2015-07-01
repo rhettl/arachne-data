@@ -456,7 +456,7 @@ module.exports.SECTORIALS = {};
 /*
  Public Functions
  */
-module.exports.getData = function (options, callback) {
+module.exports.getFullData = function (options, callback) {
   //options optional
   if (typeof options === "function" && !callback) {
     callback = options;
@@ -531,6 +531,61 @@ module.exports.getData = function (options, callback) {
 
 
     // Output to user
+    //.then(function (i) {
+    //  callback(null, i);
+    //})
+    //// Show error messages
+    //.fail(function (e) {
+    //  callback(e);
+    //})
+  ;
+
+  var names = getSectorialNames(options.armyRoot, options.lang);
+
+  // Once I have all names and data
+  //  Attach names to data
+  q.all([data, names])
+    .spread(function(data, names){
+      //parse factions
+      Object.getOwnPropertyNames(data).forEach(function(fid){
+        var faction = data[fid];
+
+        // Get faction name from names array
+        var facName = names.shift();
+        module.exports.FACTIONS[fid] = facName;
+
+        //parse sectorials
+        Object.getOwnPropertyNames(faction).forEach(function(sid){
+          var sectorial = faction[sid];
+
+          // if sectorial get sectorial name else use "General"
+          var secName = sid == 1 ? 'General' : names.shift();
+          module.exports.SECTORIALS['' + fid + sid] = secName;
+
+          //console.log("" + fid + sid, facName, secName);
+
+          // Save faction and sectorial information to respective data locations
+          sectorial.faction = facName;
+          sectorial.sectorial = secName;
+          sectorial.isSectorial = secName != 1;
+
+          sectorial.units.forEach(function(i, j){
+            i.faction = facName;
+            i.sectorial = secName;
+            i.isSectorial = secName != 1;
+          });
+
+        });
+      });
+
+      return data;
+
+    })
+    .then(function(data){
+
+    })
+
+    // Output to user
     .then(function (i) {
       callback(null, i);
     })
@@ -538,53 +593,8 @@ module.exports.getData = function (options, callback) {
     .fail(function (e) {
       callback(e);
     })
+    .done()
   ;
-
-  //var names = getSectorialNames(options.armyRoot, options.lang);
-  //
-  //// Once I have all names and data
-  ////  Attach names to data
-  //q.all([data, names])
-  //  .spread(function(data, names){
-  //    //parse factions
-  //    Object.getOwnPropertyNames(data).forEach(function(fid){
-  //      var faction = data[fid];
-  //
-  //      // Get faction name from names array
-  //      var facName = names.shift();
-  //      module.exports.FACTIONS[facName] = fid;
-  //
-  //      //parse sectorials
-  //      Object.getOwnPropertyNames(faction).forEach(function(sid){
-  //        var sectorial = faction[sid];
-  //
-  //        // if sectorial get sectorial name else use "General"
-  //        var secName = sid == 1 ? 'General' : names.shift();
-  //
-  //
-  //
-  //        console.log("" + fid + sid, facName, secName);
-  //
-  //        // Save faction and sectorial information to respective data locations
-  //        data[fid][sid].faction = facName;
-  //        data[fid][sid].sectorial = secName;
-  //        data[fid][sid].isSctorial = secName != 1;
-  //
-  //      })
-  //    })
-  //
-  //  })
-  //
-  //  // Output to user
-  //  .then(function (i) {
-  //    callback(null, i);
-  //  })
-  //  // Show error messages
-  //  .fail(function (e) {
-  //    callback(e);
-  //  })
-  //  .done(function(){})
-  //;
 
 };
 

@@ -1,7 +1,7 @@
 var fs = require('fs');
 var Infinity = require('./dataLoader.js');
 
-Infinity.getData({
+Infinity.getFullData({
   //includeRaw: true
 }, function (e, d) {
   if (e) {
@@ -12,7 +12,7 @@ Infinity.getData({
     file.end();
   }
 });
-Infinity.getData({
+Infinity.getFullData({
   //includeRaw: true
 }, function (e, d) {
   if (e) {
