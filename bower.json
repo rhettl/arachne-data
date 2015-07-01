@@ -1,0 +1,25 @@
+{
+  "name": "infinity-data",
+  "main": "dataLoader.js",
+  "version": "0.0.1",
+  "authors": [
+    "Rhett Lowe <rng2ml@gmail.com>"
+  ],
+  "description": "Convert Army5 data for Infinity, the game, into usable format.",
+  "keywords": [
+    "Army5",
+    "Infinity",
+    "Data",
+    "Miniature",
+    "Game"
+  ],
+  "homepage": "https://github.com/rhettl/infinity-data",
+  "license": "GPL-2.0",
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "test",
+    "tests"
+  ]
+}
