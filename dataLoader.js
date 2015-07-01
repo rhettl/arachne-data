@@ -258,6 +258,32 @@ var parseHas = function (skills) {
   return matches || [];
 };
 
+var profileToObject = function (p) {
+  var t      = p.split(/#/),
+      orders = t[8].split(/%/).map(function (i) {
+        return parseInt(i)
+      });
+
+  return {
+    id        : parseInt(t[0]),
+    name      : t[1],
+    weapon    : t[2],
+    ccw       : t[3],
+    swc       : t[4],
+    extraSwc  : !!(t[4].match(/\+/)),
+    pts       : parseInt(t[5]),
+    selectable: !isNaN(parseInt(t[7])),
+    attachment: parseInt(t[7]) || false,
+    order     : {
+      regular  : orders[0],
+      irregular: orders[1],
+      impetuous: orders[2]
+    },
+    numUnits  : parseInt(t[6]),
+    duo       : t[9] === '1'
+  };
+}
+
 var parseUnitString = function (str, options) {
   if (!str) throw new Error('No unit string given');
 
@@ -292,7 +318,7 @@ var parseUnitString = function (str, options) {
         }
       ],
 
-      unit        = {
+      rootUnit    = {
         id         : parseInt(sec[0]),
         faction    : '',
         sectorial  : '',
@@ -301,13 +327,15 @@ var parseUnitString = function (str, options) {
         numUnits   : sec[2],
         windowType : sec[21],
 
-        units: []
+        units: [],
+
+        duo: false
 
 
         //raw: str
       };
 
-  unit.units = profileSets
+  rootUnit.units = profileSets
     .filter(function (unit) {
       return (unit.basic || []).length > 1
     })
@@ -318,6 +346,21 @@ var parseUnitString = function (str, options) {
       return unit;
     })
     .map(function (unit) {
+
+      var profiles = unit.profiles
+            .map(profileToObject)
+            .filter(function (i) {
+              if (i.duo) {
+                // Put this profile on root unit for better reference
+                i.selectable = true;
+                delete i.duo;
+                rootUnit.duo = i;
+                // to be removed with filter after this map
+              }
+              return !i.duo;
+            })
+        ;
+
 
       return {
 
@@ -353,52 +396,31 @@ var parseUnitString = function (str, options) {
         },
         skills  : unit.skills,
         equip   : unit.equip,
-        profiles: unit.profiles.map(function (p) {
-          console.log(p);
-          var t = p.split(/#/);
-
-          console.log(t[1], t[0], t[6], t[7], t[8], t[9]);
-
-          return {
-            id      : parseInt(t[0]),
-            name    : t[1],
-            weapon  : t[2],
-            ccw     : t[3],
-            swc     : t[4],
-            extraSwc: !!(t[4].match(/\+/)),
-            pts     : parseInt(t[5]),
-            selectable: !!parseInt(t[7]),
-            attachment: parseInt(t[7]) || false,
-            unk1    : t[6],
-            unk2    : t[7],
-            unk3    : t[8].split(/%/),//.map(function(i){return parseInt(i)}),
-            unk4    : t[9]
-          }
-        })
+        profiles: profiles
 
       }
     })
   ;
 
-  if (options.includeRaw) {
-    unit.raw = str;
+  if (rootUnit.duo) {
+    rootUnit.duo.units = rootUnit.units
+      .map(function (u) {
+        return u.profiles[0];
+      })
+      .map(function (p) {
+        p.duo = rootUnit.duo.id;
+        return p.id;
+      })
   }
 
-  //console.log(sec[1]);
-  //if (sec[13]) console.log('13', sec[13], sec[1]);
-  //if (sec[14]) console.log('14', sec[14], sec[1]);
-  //if (sec[15]) console.log('15', sec[15], sec[1]);
-  //if (sec[16]) console.log('16', sec[16], sec[1]);
-  //if (sec[17]) console.log('17', sec[17], sec[1]);
-  //if (sec[20]) console.log('20', sec[20], sec[1]);
-  //if (sec[7]) console.log('7', sec[7], sec[1]);
-  //if (sec[6]) console.log('6', sec[6], sec[1]);
+
+  if (options.includeRaw) {
+    rootUnit.raw = str;
+  }
+
   console.log('');
 
-  //console.log(sec.slice(12, 18), sec[20]);
-
-
-  return unit;
+  return rootUnit;
 };
 
 
@@ -442,7 +464,7 @@ module.exports.getData = function (options, callback) {
   }
 
   callback = callback || function (e, d) {
-      if (e) throw e
+      if (e) throw e;
     };
   var options = extend({}, module.exports.DEFAULTS, options);
 
@@ -467,7 +489,7 @@ module.exports.getData = function (options, callback) {
     data = q.fcall(requireFile, options.tmpLoc + '/' + options.tmpDataName);
   }
 
-  data
+  data = data
     // parse context to get raw unit info per sectorial
     .then(parseIntoFactions(options.lang))
 
@@ -516,14 +538,12 @@ module.exports.getData = function (options, callback) {
     .fail(function (e) {
       callback(e);
     })
-    .done(function () {
-    })
   ;
 
   //var names = getSectorialNames(options.armyRoot, options.lang);
-
-  // Once I have all names and data
-  //  Attach names to data
+  //
+  //// Once I have all names and data
+  ////  Attach names to data
   //q.all([data, names])
   //  .spread(function(data, names){
   //    //parse factions
@@ -552,6 +572,16 @@ module.exports.getData = function (options, callback) {
   //
   //      })
   //    })
+  //
+  //  })
+  //
+  //  // Output to user
+  //  .then(function (i) {
+  //    callback(null, i);
+  //  })
+  //  // Show error messages
+  //  .fail(function (e) {
+  //    callback(e);
   //  })
   //  .done(function(){})
   //;
